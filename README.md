@@ -140,4 +140,4 @@ POST /chat
 
 ## License
 
-MIT
+MIT License. See the [LICENSE](LICENSE) file for details.
