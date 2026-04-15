@@ -1,0 +1,37 @@
+# ── Runtime secrets (NEVER commit) ───────────────────────────
+# Generated each session by the notebook; contains live tokens and API keys.
+local_client/config.json
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# ── Environments ─────────────────────────────────────────────
+.env
+.env.*
+.venv/
+venv/
+env/
+
+# ── Jupyter / notebook checkpoints ───────────────────────────
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# ── OS junk ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
