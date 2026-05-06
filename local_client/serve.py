@@ -6,8 +6,8 @@ Why not just open index.html directly?
   fetch() calls (CORS policy). Serving over http://localhost fixes this.
 
 Usage:
-  python3 serve.py          # opens http://localhost:3000 automatically
-  python3 serve.py 8080     # use a custom port
+  python3 serve.py           # serves on port 8080 and opens the browser
+  python3 serve.py 3000      # optional: custom port
 """
 
 import http.server

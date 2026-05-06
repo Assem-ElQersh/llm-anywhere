@@ -1,6 +1,8 @@
-# ── Runtime secrets (NEVER commit) ───────────────────────────
-# Generated each session by the notebook; contains live tokens and API keys.
+# ── Runtime / local overrides (NEVER commit) ────────────────
+# Session secrets from the notebook (ngrok URL, API key, etc.).
 local_client/config.json
+# Optional per-machine Colab/Kaggle link for the Connect button (copy from site.json.example).
+local_client/site.json
 
 # ── Python ────────────────────────────────────────────────────
 __pycache__/

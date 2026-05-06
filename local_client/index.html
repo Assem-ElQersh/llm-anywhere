@@ -60,6 +60,12 @@
       transition: border-color 0.2s, color 0.2s;
     }
     #settingsBtn:hover { border-color: var(--accent); color: var(--text); }
+    #connectBtn {
+      background: var(--accent); border: none; color: #fff;
+      border-radius: 8px; padding: 5px 14px; cursor: pointer; font-size: 0.8rem;
+      font-weight: 600; transition: background 0.2s;
+    }
+    #connectBtn:hover { background: var(--accent-dk); }
 
     /* ── Settings panel ── */
     #settingsPanel {
@@ -196,8 +202,8 @@
   ⚠️ You opened this file directly from disk (<code>file://</code>).
   Browsers block outgoing requests from <code>file://</code> pages.
   <strong>Run the local server instead:</strong>
-  &nbsp;<code>python3 serve.py</code>&nbsp; then open
-  &nbsp;<code>http://localhost:3000</code>
+  &nbsp;<code>python3 serve.py</code>&nbsp; (default port 8080) then open
+  &nbsp;<code>http://localhost:8080</code>
 </div>
 
 <div class="app">
@@ -208,18 +214,23 @@
     <h1>AI Chat</h1>
     <span class="model-badge" id="modelBadge">not connected</span>
     <span class="spacer"></span>
-    <button id="settingsBtn" onclick="toggleSettings()">⚙ Settings</button>
+    <button type="button" id="connectBtn" onclick="connectNotebook()" title="Open notebook link in a new tab">Connect</button>
+    <button type="button" id="settingsBtn" onclick="toggleSettings()">⚙ Settings</button>
   </header>
 
   <!-- Settings panel -->
   <div id="settingsPanel">
+    <div class="settings-row">
+      <label>Notebook URL</label>
+      <input id="cfgColabUrl" type="url" placeholder="Colab (Drive or GitHub) or Kaggle notebook link" spellcheck="false" />
+    </div>
     <div class="settings-row">
       <label>ngrok URL</label>
       <input id="cfgUrl" type="text" placeholder="https://xxxx-xx-xx.ngrok-free.app" spellcheck="false" />
     </div>
     <div class="settings-row">
       <label>API Key</label>
-      <input id="cfgKey" type="password" placeholder="change-me-to-something-random" spellcheck="false" />
+      <input id="cfgKey" type="password" placeholder="API secret from config.json" spellcheck="false" />
     </div>
     <div class="settings-row">
       <label>System prompt</label>
@@ -227,7 +238,7 @@
     </div>
     <div class="settings-row">
       <label></label>
-      <button id="applyBtn" onclick="applySettings()">Connect</button>
+      <button id="applyBtn" onclick="applySettings()">Connect to model</button>
     </div>
   </div>
 
@@ -235,7 +246,7 @@
   <div id="messages">
     <div id="emptyState">
       <div class="icon">🤖</div>
-      <p>Open <strong>Settings</strong>, paste your ngrok URL from Colab/Kaggle, and start chatting.</p>
+      <p>Tap <strong>Connect</strong> to open Colab, then download <strong>config.json</strong> when the notebook offers it and refresh this page — or paste the ngrok URL in <strong>Settings</strong>.</p>
     </div>
   </div>
 
@@ -257,6 +268,7 @@
   let NGROK_URL    = localStorage.getItem("ngrok_url")    || "";
   let API_KEY      = localStorage.getItem("api_key")      || "";
   let SYSTEM_PROMPT = localStorage.getItem("system_prompt") || "You are a helpful and friendly AI assistant. Keep answers concise.";
+  let COLAB_NOTEBOOK_URL = localStorage.getItem("colab_notebook_url") || "";
   let history      = [];   // [{role, content}, ...]
   let busy         = false;
 
@@ -271,8 +283,21 @@
   window.addEventListener("DOMContentLoaded", async () => {
     autoResize(document.getElementById("userInput"));
 
-    // 1. Try loading config.json dropped next to index.html
-    let loadedFromFile = false;
+    // 1. Optional site.json — default Colab link for “Connect” (no secrets)
+    try {
+      const sresp = await fetch("/site.json", { cache: "no-store" });
+      if (sresp.ok) {
+        const site = await sresp.json();
+        const nb =
+          (site.notebook_url || site.colab_notebook_url || "").trim();
+        if (nb) {
+          COLAB_NOTEBOOK_URL = nb;
+          localStorage.setItem("colab_notebook_url", COLAB_NOTEBOOK_URL);
+        }
+      }
+    } catch (_) { /* optional */ }
+
+    // 2. Try loading config.json dropped next to index.html
     try {
       const resp = await fetch("/config.json", { cache: "no-store" });
       if (resp.ok) {
@@ -280,24 +305,40 @@
         if (cfg.ngrok_url)      { NGROK_URL     = cfg.ngrok_url;      localStorage.setItem("ngrok_url",     NGROK_URL); }
         if (cfg.api_secret_key) { API_KEY        = cfg.api_secret_key; localStorage.setItem("api_key",       API_KEY); }
         if (cfg.system_prompt)  { SYSTEM_PROMPT  = cfg.system_prompt;  localStorage.setItem("system_prompt", SYSTEM_PROMPT); }
-        loadedFromFile = true;
         showBanner(`Config loaded from config.json — model: ${cfg.model_id || "?"} · device: ${cfg.device || "?"}`, "ok");
       }
     } catch (_) { /* no config.json present — fall through */ }
 
-    // 2. Fall back to whatever is stored in localStorage
+    // 3. Reflect stored values in the form
+    document.getElementById("cfgColabUrl").value = COLAB_NOTEBOOK_URL;
     document.getElementById("cfgUrl").value    = NGROK_URL;
     document.getElementById("cfgKey").value    = API_KEY;
     document.getElementById("cfgSystem").value = SYSTEM_PROMPT;
 
     if (NGROK_URL) {
-      // Auto-connect silently
       await applySettings(/*silent=*/true);
-    } else {
-      // Nothing configured yet — open settings panel
-      toggleSettings();
     }
   });
+
+  function connectNotebook() {
+    const raw = document.getElementById("cfgColabUrl").value.trim();
+    COLAB_NOTEBOOK_URL = raw;
+    localStorage.setItem("colab_notebook_url", COLAB_NOTEBOOK_URL);
+
+    if (!COLAB_NOTEBOOK_URL) {
+      showToast("Add a notebook URL in Settings.");
+      return;
+    }
+
+    try {
+      new URL(COLAB_NOTEBOOK_URL);
+    } catch (_) {
+      showToast("That doesn’t look like a valid URL.");
+      return;
+    }
+
+    window.open(COLAB_NOTEBOOK_URL, "_blank", "noopener,noreferrer");
+  }
 
   // ── Settings ──────────────────────────────────────────────
   function toggleSettings() {
@@ -432,7 +473,7 @@
     const div = document.createElement("div");
     div.id = "emptyState";
     div.innerHTML = `<div class="icon">🤖</div>
-      <p>Open <strong>Settings</strong>, paste your ngrok URL from Colab/Kaggle, and start chatting.</p>`;
+      <p>Tap <strong>Connect</strong> for Colab, then add <strong>config.json</strong> or use <strong>Settings</strong> with your ngrok URL.</p>`;
     return div;
   }
 
@@ -480,7 +521,7 @@
   }
 
   // ── Dismissible info banner (for config.json auto-load) ───
-  function showBanner(msg, type = "ok") {
+  function showBanner(msg, type = "ok", durationMs = 6000) {
     let banner = document.getElementById("infoBanner");
     if (!banner) {
       banner = document.createElement("div");
@@ -504,7 +545,7 @@
       ? (banner.childNodes[0].textContent = msg)
       : banner.insertBefore(document.createTextNode(msg), banner.firstChild);
     document.querySelector(".app").style.paddingTop = "38px";
-    setTimeout(() => { banner?.remove(); document.querySelector(".app").style.paddingTop = ""; }, 6000);
+    setTimeout(() => { banner?.remove(); document.querySelector(".app").style.paddingTop = ""; }, durationMs);
   }
 
   // ── Auto-resize textarea ──────────────────────────────────
